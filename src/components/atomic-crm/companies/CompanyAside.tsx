@@ -19,6 +19,8 @@ import type { Company } from "../types";
 import { getTranslatedCompanySizeLabel } from "./getTranslatedCompanySizeLabel";
 import { sizes } from "./sizes";
 import { useGetSalesName } from "../sales/useGetSalesName";
+import { InvitePortalAdmin } from "./InvitePortalAdmin";
+import { CompanyPortalUsers } from "./CompanyPortalUsers";
 
 interface CompanyAsideProps {
   link?: string;
@@ -46,6 +48,10 @@ export const CompanyAside = ({ link = "edit" }: CompanyAsideProps) => {
       <ContextInfo record={record} />
 
       <AdditionalInfo record={record} />
+
+      <CompanyPortalUsers />
+
+      <InvitePortalAdmin />
 
       {link !== "edit" && (
         <div className="mt-6 pt-6 border-t hidden sm:flex flex-col gap-2 items-start">

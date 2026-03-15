@@ -22,6 +22,13 @@ import { MobileDashboard } from "../dashboard/MobileDashboard";
 import deals from "../deals";
 import { Layout } from "../layout/Layout";
 import { MobileLayout } from "../layout/MobileLayout";
+import { ConditionalLayout } from "../portal/ConditionalLayout";
+import { ConditionalDashboard } from "../portal/ConditionalDashboard";
+import { SubscriptionPage } from "../portal/subscription/SubscriptionPage";
+import { UsageDashboard } from "../portal/usage/UsageDashboard";
+import { ProductConfigPage } from "../portal/config/ProductConfigPage";
+import { PortalStaffList } from "../portal/staff/PortalStaffList";
+import { PortalAccountPage } from "../portal/account/PortalAccountPage";
 import { SignupPage } from "../login/SignupPage";
 import { ConfirmationRequired } from "../login/ConfirmationRequired";
 import { ImportPage } from "../misc/ImportPage";
@@ -227,7 +234,11 @@ export const CRM = ({
 
 const DesktopAdmin = (props: CoreAdminProps) => {
   return (
-    <Admin layout={Layout} dashboard={Dashboard} {...props}>
+    <Admin
+      layout={ConditionalLayout}
+      dashboard={ConditionalDashboard}
+      {...props}
+    >
       <CustomRoutes noLayout>
         <Route path={SignupPage.path} element={<SignupPage />} />
         <Route
@@ -247,6 +258,7 @@ const DesktopAdmin = (props: CoreAdminProps) => {
         <Route path={SettingsPage.path} element={<SettingsPage />} />
         <Route path={ImportPage.path} element={<ImportPage />} />
       </CustomRoutes>
+      {/* CRM resources (hidden from portal users via canAccess) */}
       <Resource name="deals" {...deals} />
       <Resource name="contacts" {...contacts} />
       <Resource name="companies" {...companies} />
@@ -255,6 +267,15 @@ const DesktopAdmin = (props: CoreAdminProps) => {
       <Resource name="tasks" />
       <Resource name="sales" {...sales} />
       <Resource name="tags" />
+      {/* Portal resources (hidden from internal users via canAccess) */}
+      <Resource name="subscriptions" list={SubscriptionPage} />
+      <Resource name="usage_records" list={UsageDashboard} />
+      <Resource name="product_configs" list={ProductConfigPage} />
+      <Resource name="portal_users" list={PortalStaffList} />
+      <Resource name="portal_account" list={PortalAccountPage} />
+      <Resource name="plans" />
+      <Resource name="chat_widget_configs" />
+      <Resource name="conversations" />
     </Admin>
   );
 };

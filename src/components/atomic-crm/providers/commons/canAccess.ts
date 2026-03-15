@@ -7,25 +7,54 @@ type CanAccessParams<
   record?: RecordType;
 };
 
+const PORTAL_RESOURCES = [
+  "portal_dashboard",
+  "subscriptions",
+  "usage_records",
+  "product_configs",
+  "chat_widget_configs",
+  "portal_users",
+  "portal_account",
+  "conversations",
+];
+
 export const canAccess = <
   RecordType extends Record<string, any> = Record<string, any>,
 >(
   role: string,
   params: CanAccessParams<RecordType>,
 ) => {
+  // Internal admin: full CRM access, no portal resources
   if (role === "admin") {
+    return !PORTAL_RESOURCES.includes(params.resource);
+  }
+
+  // Internal non-admin: CRM access minus sales/configuration, no portal
+  if (role === "user") {
+    if (PORTAL_RESOURCES.includes(params.resource)) return false;
+    if (params.resource === "sales") return false;
+    if (params.resource === "configuration") return false;
     return true;
   }
 
-  // Non admins can't access the sales resource
-  if (params.resource === "sales") {
-    return false;
+  // Portal admin: full portal access
+  if (role === "portal_admin") {
+    return PORTAL_RESOURCES.includes(params.resource);
   }
 
-  // Non admins can't access the configuration resource
-  if (params.resource === "configuration") {
-    return false;
+  // Portal member: portal access minus staff management writes
+  if (role === "portal_member") {
+    if (!PORTAL_RESOURCES.includes(params.resource)) return false;
+    // Members can view staff but not create/edit/delete
+    if (
+      params.resource === "portal_users" &&
+      params.action !== "list" &&
+      params.action !== "show"
+    ) {
+      return false;
+    }
+    return true;
   }
 
-  return true;
+  return false;
 };

@@ -49,11 +49,29 @@ export async function getIsInitialized() {
   return isInitialized;
 }
 
-const getSale = async () => {
+export type UserProfile = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  avatar?: { src: string };
+  userType: "internal" | "portal";
+  // internal fields
+  administrator?: boolean;
+  // portal fields
+  company_id?: number;
+  role?: string;
+};
+
+const getUserProfile = async (): Promise<UserProfile | undefined> => {
   const storage = getLocalStorage();
   const cachedValue = storage?.getItem(CURRENT_SALE_CACHE_KEY);
   if (cachedValue != null) {
-    return JSON.parse(cachedValue);
+    const parsed = JSON.parse(cachedValue);
+    // Invalidate stale cache missing userType (pre-portal migration)
+    if (parsed.userType) {
+      return parsed;
+    }
+    storage?.removeItem(CURRENT_SALE_CACHE_KEY);
   }
 
   const { data: dataSession, error: errorSession } =
@@ -64,20 +82,39 @@ const getSale = async () => {
     return undefined;
   }
 
+  const userId = dataSession.session.user.id;
+
+  // Try sales first (internal users)
   const { data: dataSale, error: errorSale } = await supabase
     .from("sales")
     .select("id, first_name, last_name, avatar, administrator")
-    .match({ user_id: dataSession?.session?.user.id })
+    .match({ user_id: userId })
     .single();
 
-  // Shouldn't happen either as all users are sales but just in case
-  if (dataSale == null || errorSale) {
-    return undefined;
+  if (dataSale != null && !errorSale) {
+    const profile: UserProfile = { ...dataSale, userType: "internal" };
+    storage?.setItem(CURRENT_SALE_CACHE_KEY, JSON.stringify(profile));
+    return profile;
   }
 
-  storage?.setItem(CURRENT_SALE_CACHE_KEY, JSON.stringify(dataSale));
-  return dataSale;
+  // Try portal_users (customer users)
+  const { data: dataPortal, error: errorPortal } = await supabase
+    .from("portal_users")
+    .select("id, first_name, last_name, avatar, company_id, role")
+    .match({ user_id: userId })
+    .single();
+
+  if (dataPortal != null && !errorPortal) {
+    const profile: UserProfile = { ...dataPortal, userType: "portal" };
+    storage?.setItem(CURRENT_SALE_CACHE_KEY, JSON.stringify(profile));
+    return profile;
+  }
+
+  return undefined;
 };
+
+// Keep backward compatibility
+const getSale = getUserProfile;
 
 function clearCache() {
   const storage = getLocalStorage();
@@ -142,12 +179,17 @@ export const authProvider: AuthProvider = {
     const isInitialized = await getIsInitialized();
     if (!isInitialized) return false;
 
-    // Get the current user
-    const sale = await getSale();
-    if (sale == null) return false;
+    // Get the current user profile
+    const profile = await getUserProfile();
+    if (profile == null) return false;
 
-    // Compute access rights from the sale role
-    const role = sale.administrator ? "admin" : "user";
+    // Compute access rights from the user type and role
+    let role: string;
+    if (profile.userType === "internal") {
+      role = profile.administrator ? "admin" : "user";
+    } else {
+      role = profile.role === "admin" ? "portal_admin" : "portal_member";
+    }
     return canAccess(role, params);
   },
   getAuthorizationDetails(authorizationId: string) {
