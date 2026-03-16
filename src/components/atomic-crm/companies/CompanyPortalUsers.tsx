@@ -162,10 +162,20 @@ export const CompanyPortalUsers = () => {
               </div>
               <div className="flex items-center gap-1 ml-2 shrink-0">
                 <Badge
-                  variant={user.role === "admin" ? "default" : "secondary"}
-                  className="text-xs"
+                  variant={
+                    user.role === "super_admin"
+                      ? "default"
+                      : user.role === "admin"
+                        ? "outline"
+                        : "secondary"
+                  }
+                  className={`text-xs ${user.role === "super_admin" ? "border-purple-400 bg-purple-100 text-purple-700 dark:border-purple-600 dark:bg-purple-900 dark:text-purple-300" : ""}`}
                 >
-                  {user.role}
+                  {user.role === "super_admin"
+                    ? "Super Admin"
+                    : user.role === "admin"
+                      ? "Admin"
+                      : "Member"}
                 </Badge>
                 <Button
                   variant="ghost"

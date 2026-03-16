@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X } from "lucide-react";
-import { usePortalCompanyId } from "../usePortalCompanyId";
+import { usePortalCompanyId, usePortalProfile } from "../usePortalCompanyId";
 import { supabase } from "../../providers/supabase/supabase";
 
 export const PortalStaffInvite = ({
@@ -19,6 +19,8 @@ export const PortalStaffInvite = ({
   onClose: () => void;
 }) => {
   const companyId = usePortalCompanyId();
+  const profile = usePortalProfile();
+  const isSuperAdmin = profile?.role === "super_admin";
   const notify = useNotify();
   const refresh = useRefresh();
   const [loading, setLoading] = useState(false);
@@ -100,7 +102,7 @@ export const PortalStaffInvite = ({
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="member">Member</option>
-              <option value="admin">Admin</option>
+              {isSuperAdmin && <option value="admin">Admin</option>}
             </select>
           </div>
           <div className="flex gap-2 justify-end">

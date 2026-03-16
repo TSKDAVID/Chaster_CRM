@@ -6,6 +6,7 @@ import {
   Users,
   Building2,
   User,
+  MessageSquare,
 } from "lucide-react";
 import { useUserMenu } from "ra-core";
 import { Link, matchPath, useLocation } from "react-router";
@@ -36,6 +37,7 @@ const PortalHeader = () => {
       icon: Settings,
     },
     { label: "Staff", to: "/portal_users", path: "/portal_users", icon: Users },
+    { label: "Messages", to: "/messages", path: "/messages", icon: MessageSquare },
   ];
 
   const currentPath =

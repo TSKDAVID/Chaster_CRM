@@ -5,6 +5,16 @@ import { createErrorResponse } from "../_shared/utils.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
 
+const ROLE_RANK: Record<string, number> = {
+  super_admin: 3,
+  admin: 2,
+  member: 1,
+};
+
+function getRank(role: string): number {
+  return ROLE_RANK[role] ?? 0;
+}
+
 async function updateSaleDisabled(user_id: string, disabled: boolean) {
   return await supabaseAdmin
     .from("sales")
@@ -12,13 +22,10 @@ async function updateSaleDisabled(user_id: string, disabled: boolean) {
     .eq("user_id", user_id);
 }
 
-async function updateSaleAdministrator(
-  user_id: string,
-  administrator: boolean,
-) {
+async function updateSaleRole(user_id: string, role: string) {
   const { data: sales, error: salesError } = await supabaseAdmin
     .from("sales")
-    .update({ administrator })
+    .update({ role })
     .eq("user_id", user_id)
     .select("*");
 
@@ -37,12 +44,21 @@ async function createSale(
     first_name: string;
     last_name: string;
     disabled: boolean;
-    administrator: boolean;
+    role: string;
   },
 ) {
   const { data: sales, error: salesError } = await supabaseAdmin
     .from("sales")
-    .insert({ ...data, user_id })
+    .insert({
+      user_id,
+      email: data.email,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      disabled: data.disabled,
+      role: data.role,
+      // administrator is set by trigger from role
+      administrator: data.role !== "member",
+    })
     .select("*");
 
   if (!sales?.length || salesError) {
@@ -67,11 +83,25 @@ async function updateSaleAvatar(user_id: string, avatar: string) {
 }
 
 async function inviteUser(req: Request, currentUserSale: any) {
-  const { email, password, first_name, last_name, disabled, administrator } =
+  const { email, password, first_name, last_name, disabled, role, administrator } =
     await req.json();
 
-  if (!currentUserSale.administrator) {
+  // Backward compat: if old clients send administrator boolean, map it
+  const effectiveRole = role ?? (administrator ? "admin" : "member");
+
+  const callerRank = getRank(currentUserSale.role);
+
+  // Only admins and super_admins can invite
+  if (callerRank < 2) {
     return createErrorResponse(401, "Not Authorized");
+  }
+
+  // Cannot assign a role higher than or equal to your own (unless super_admin)
+  if (callerRank < 3 && getRank(effectiveRole) >= callerRank) {
+    return createErrorResponse(
+      403,
+      "You cannot assign a role equal to or higher than your own",
+    );
   }
 
   const { data, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -83,8 +113,6 @@ async function inviteUser(req: Request, currentUserSale: any) {
   let user = data?.user;
 
   if (!user && userError?.code === "email_exists") {
-    // This may happen if users cleared their database but not the users
-    // We have to create the sale directly
     const { data, error } = await supabaseAdmin.rpc("get_user_id_by_email", {
       email,
     });
@@ -120,7 +148,7 @@ async function inviteUser(req: Request, currentUserSale: any) {
         first_name,
         last_name,
         disabled,
-        administrator,
+        role: effectiveRole,
       });
 
       return new Response(
@@ -162,7 +190,7 @@ async function inviteUser(req: Request, currentUserSale: any) {
 
   try {
     await updateSaleDisabled(user.id, disabled);
-    const sale = await updateSaleAdministrator(user.id, administrator);
+    const sale = await updateSaleRole(user.id, effectiveRole);
 
     return new Response(
       JSON.stringify({
@@ -185,9 +213,11 @@ async function patchUser(req: Request, currentUserSale: any) {
     first_name,
     last_name,
     avatar,
+    role,
     administrator,
     disabled,
   } = await req.json();
+
   const { data: sale } = await supabaseAdmin
     .from("sales")
     .select("*")
@@ -198,9 +228,21 @@ async function patchUser(req: Request, currentUserSale: any) {
     return createErrorResponse(404, "Not Found");
   }
 
-  // Users can only update their own profile unless they are an administrator
-  if (!currentUserSale.administrator && currentUserSale.id !== sale.id) {
+  const callerRank = getRank(currentUserSale.role);
+  const targetRank = getRank(sale.role);
+  const isSelf = currentUserSale.id === sale.id;
+
+  // Members can only update their own profile (no role/disabled changes)
+  if (callerRank < 2 && !isSelf) {
     return createErrorResponse(401, "Not Authorized");
+  }
+
+  // Admins cannot modify super_admins or other admins
+  if (!isSelf && callerRank < 3 && targetRank >= callerRank) {
+    return createErrorResponse(
+      403,
+      "You cannot modify a user with equal or higher role",
+    );
   }
 
   const { data, error: userError } =
@@ -219,8 +261,10 @@ async function patchUser(req: Request, currentUserSale: any) {
     await updateSaleAvatar(data.user.id, avatar);
   }
 
-  // Only administrators can update the administrator and disabled status
-  if (!currentUserSale.administrator) {
+  // Only admins+ can update role and disabled status, and not on themselves
+  const canManage = callerRank >= 2 && !isSelf;
+
+  if (!canManage) {
     const { data: new_sale } = await supabaseAdmin
       .from("sales")
       .select("*")
@@ -239,12 +283,35 @@ async function patchUser(req: Request, currentUserSale: any) {
     );
   }
 
+  // Determine effective new role
+  const effectiveRole = role ?? (administrator !== undefined ? (administrator ? "admin" : "member") : undefined);
+
+  if (effectiveRole) {
+    // Cannot promote someone to a rank >= your own (unless super_admin)
+    if (callerRank < 3 && getRank(effectiveRole) >= callerRank) {
+      return createErrorResponse(
+        403,
+        "You cannot assign a role equal to or higher than your own",
+      );
+    }
+  }
+
   try {
     await updateSaleDisabled(data.user.id, disabled);
-    const sale = await updateSaleAdministrator(data.user.id, administrator);
+    const updatedSale = effectiveRole
+      ? await updateSaleRole(data.user.id, effectiveRole)
+      : sale;
+
+    // Re-fetch to get synced administrator field
+    const { data: finalSale } = await supabaseAdmin
+      .from("sales")
+      .select("*")
+      .eq("id", sales_id)
+      .single();
+
     return new Response(
       JSON.stringify({
-        data: sale,
+        data: finalSale ?? updatedSale,
       }),
       {
         headers: {
@@ -253,7 +320,11 @@ async function patchUser(req: Request, currentUserSale: any) {
         },
       },
     );
-  } catch (e) {
+  } catch (e: any) {
+    // Catch the "last super admin" trigger error
+    if (e?.message?.includes("last super admin")) {
+      return createErrorResponse(400, "Cannot remove the last super admin");
+    }
     console.error("Error patching sale:", e);
     return createErrorResponse(500, "Internal Server Error");
   }

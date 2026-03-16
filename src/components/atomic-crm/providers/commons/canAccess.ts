@@ -18,12 +18,22 @@ const PORTAL_RESOURCES = [
   "conversations",
 ];
 
+// Resources accessible by all authenticated users regardless of role
+const SHARED_RESOURCES = ["messages"];
+
 export const canAccess = <
   RecordType extends Record<string, any> = Record<string, any>,
 >(
   role: string,
   params: CanAccessParams<RecordType>,
 ) => {
+  if (SHARED_RESOURCES.includes(params.resource)) return true;
+
+  // Internal super_admin: same as admin — full CRM access, no portal resources
+  if (role === "super_admin") {
+    return !PORTAL_RESOURCES.includes(params.resource);
+  }
+
   // Internal admin: full CRM access, no portal resources
   if (role === "admin") {
     return !PORTAL_RESOURCES.includes(params.resource);
@@ -35,6 +45,11 @@ export const canAccess = <
     if (params.resource === "sales") return false;
     if (params.resource === "configuration") return false;
     return true;
+  }
+
+  // Portal super_admin: full portal access
+  if (role === "portal_super_admin") {
+    return PORTAL_RESOURCES.includes(params.resource);
   }
 
   // Portal admin: full portal access

@@ -145,7 +145,7 @@ const dataProviderWithCustomMethods = {
     id: Identifier,
     data: Partial<Omit<SalesFormData, "password">>,
   ) {
-    const { email, first_name, last_name, administrator, avatar, disabled } =
+    const { email, first_name, last_name, role, administrator, avatar, disabled } =
       data;
 
     const { data: updatedData, error } = await supabase.functions.invoke<{
@@ -157,6 +157,7 @@ const dataProviderWithCustomMethods = {
         email,
         first_name,
         last_name,
+        role,
         administrator,
         disabled,
         avatar,

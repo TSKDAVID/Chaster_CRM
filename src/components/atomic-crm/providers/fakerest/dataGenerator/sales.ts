@@ -16,6 +16,7 @@ export const generateSales = (_: Db): Sale[] => {
       last_name,
       email,
       password: "demo",
+      role: "member" as const,
       administrator: false,
       disabled: false,
     };
@@ -28,6 +29,7 @@ export const generateSales = (_: Db): Sale[] => {
       last_name: "Doe",
       email: "janedoe@atomic.dev",
       password: "demo",
+      role: "super_admin" as const,
       administrator: true,
       disabled: false,
       avatar: {

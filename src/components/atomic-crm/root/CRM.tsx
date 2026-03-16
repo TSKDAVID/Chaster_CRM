@@ -29,6 +29,7 @@ import { UsageDashboard } from "../portal/usage/UsageDashboard";
 import { ProductConfigPage } from "../portal/config/ProductConfigPage";
 import { PortalStaffList } from "../portal/staff/PortalStaffList";
 import { PortalAccountPage } from "../portal/account/PortalAccountPage";
+import { MessagingPage } from "../messaging/MessagingPage";
 import { SignupPage } from "../login/SignupPage";
 import { ConfirmationRequired } from "../login/ConfirmationRequired";
 import { ImportPage } from "../misc/ImportPage";
@@ -257,6 +258,8 @@ const DesktopAdmin = (props: CoreAdminProps) => {
         <Route path={ProfilePage.path} element={<ProfilePage />} />
         <Route path={SettingsPage.path} element={<SettingsPage />} />
         <Route path={ImportPage.path} element={<ImportPage />} />
+        <Route path="/messages" element={<MessagingPage />} />
+        <Route path="/messages/:conversationId" element={<MessagingPage />} />
       </CustomRoutes>
       {/* CRM resources (hidden from portal users via canAccess) */}
       <Resource name="deals" {...deals} />
