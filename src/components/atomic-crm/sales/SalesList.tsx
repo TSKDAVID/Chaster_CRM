@@ -157,32 +157,38 @@ const ActionsField = () => {
               Promote to Super Admin
             </DropdownMenuItem>
           )}
-          {callerRank >= 3 && targetRole !== "admin" && (
-            <DropdownMenuItem
-              onClick={() =>
-                setConfirmAction({
-                  role: "admin",
-                  label: `${targetRank > 2 ? "Demote" : "Promote"} ${record.first_name} to Admin`,
-                })
-              }
-            >
-              <Shield className="h-4 w-4 mr-2" />
-              {targetRank > 2 ? "Demote to Admin" : "Promote to Admin"}
-            </DropdownMenuItem>
-          )}
-          {targetRole !== "member" && (
-            <DropdownMenuItem
-              onClick={() =>
-                setConfirmAction({
-                  role: "member",
-                  label: `Demote ${record.first_name} to Member`,
-                })
-              }
-            >
-              <User className="h-4 w-4 mr-2" />
-              Demote to Member
-            </DropdownMenuItem>
-          )}
+          {/* Super admins can demote to admin; admins can promote members to admin */}
+          {targetRole !== "admin" &&
+            (callerRank >= 3 ||
+              (callerRank >= 2 && targetRank < callerRank)) && (
+              <DropdownMenuItem
+                onClick={() =>
+                  setConfirmAction({
+                    role: "admin",
+                    label: `${targetRank > 2 ? "Demote" : "Promote"} ${record.first_name} to Admin`,
+                  })
+                }
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                {targetRank > 2 ? "Demote to Admin" : "Promote to Admin"}
+              </DropdownMenuItem>
+            )}
+          {/* Super admins can demote anyone; admins can demote members */}
+          {targetRole !== "member" &&
+            (callerRank >= 3 ||
+              (callerRank >= 2 && targetRank < callerRank)) && (
+              <DropdownMenuItem
+                onClick={() =>
+                  setConfirmAction({
+                    role: "member",
+                    label: `Demote ${record.first_name} to Member`,
+                  })
+                }
+              >
+                <User className="h-4 w-4 mr-2" />
+                Demote to Member
+              </DropdownMenuItem>
+            )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() =>

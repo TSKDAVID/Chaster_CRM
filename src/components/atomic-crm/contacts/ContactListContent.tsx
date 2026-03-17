@@ -1,4 +1,5 @@
-import { difference, union } from "lodash";
+import difference from "lodash/difference";
+import union from "lodash/union";
 import {
   type Identifier,
   RecordContextProvider,

@@ -1,5 +1,4 @@
-import * as React from "react";
-const DealList = React.lazy(() => import("./DealList"));
+import DealList from "./DealList";
 
 export default {
   list: DealList,

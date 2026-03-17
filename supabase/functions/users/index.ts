@@ -96,11 +96,11 @@ async function inviteUser(req: Request, currentUserSale: any) {
     return createErrorResponse(401, "Not Authorized");
   }
 
-  // Cannot assign a role higher than or equal to your own (unless super_admin)
-  if (callerRank < 3 && getRank(effectiveRole) >= callerRank) {
+  // Cannot assign a role higher than your own (admins can assign admin, not super_admin)
+  if (getRank(effectiveRole) > callerRank) {
     return createErrorResponse(
       403,
-      "You cannot assign a role equal to or higher than your own",
+      "You cannot assign a role higher than your own",
     );
   }
 
@@ -162,10 +162,7 @@ async function inviteUser(req: Request, currentUserSale: any) {
     } catch (error) {
       return createErrorResponse(
         (error as any).status ?? 500,
-        (error as Error).message,
-        {
-          code: (error as any).code,
-        },
+        "Failed to create user",
       );
     }
   } else {
@@ -287,11 +284,11 @@ async function patchUser(req: Request, currentUserSale: any) {
   const effectiveRole = role ?? (administrator !== undefined ? (administrator ? "admin" : "member") : undefined);
 
   if (effectiveRole) {
-    // Cannot promote someone to a rank >= your own (unless super_admin)
-    if (callerRank < 3 && getRank(effectiveRole) >= callerRank) {
+    // Cannot promote someone to a rank higher than your own
+    if (getRank(effectiveRole) > callerRank) {
       return createErrorResponse(
         403,
-        "You cannot assign a role equal to or higher than your own",
+        "You cannot assign a role higher than your own",
       );
     }
   }

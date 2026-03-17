@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { DmMessage } from "./types";
 
-export const MessageBubble = ({
+export const MessageBubble = memo(({
   message,
   isMine,
   showAvatar,
@@ -121,16 +121,22 @@ export const MessageBubble = ({
       {/* Lightbox */}
       {lightbox && hasImage && (
         <div
+          role="dialog"
+          aria-label="Image preview"
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-pointer"
           onClick={() => setLightbox(false)}
+          onKeyDown={(e) => e.key === "Escape" && setLightbox(false)}
+          tabIndex={0}
         >
           <img
             src={message.image_url!}
-            alt=""
+            alt="Full size preview"
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
           />
         </div>
       )}
     </>
   );
-};
+});
+
+MessageBubble.displayName = "MessageBubble";

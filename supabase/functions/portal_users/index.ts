@@ -55,11 +55,11 @@ async function invitePortalUser(req: Request, profile: any) {
 
   const effectiveRole = role ?? "member";
 
-  // Cannot assign a role >= your own unless you're super_admin
-  if (callerRank < 3 && getRank(effectiveRole) >= callerRank) {
+  // Cannot assign a role higher than your own (admins can promote to admin, not super_admin)
+  if (getRank(effectiveRole) > callerRank) {
     return createErrorResponse(
       403,
-      "You cannot assign a role equal to or higher than your own",
+      "You cannot assign a role higher than your own",
     );
   }
 
@@ -131,8 +131,8 @@ async function invitePortalUser(req: Request, profile: any) {
 async function setPortalUserPassword(req: Request, profile: any) {
   const { portal_user_id, password } = await req.json();
 
-  if (!password || password.length < 6) {
-    return createErrorResponse(400, "Password must be at least 6 characters");
+  if (!password || password.length < 10) {
+    return createErrorResponse(400, "Password must be at least 10 characters");
   }
 
   const { data: targetUser } = await supabaseAdmin
@@ -156,7 +156,7 @@ async function setPortalUserPassword(req: Request, profile: any) {
 
   if (error) {
     console.error("Error setting password:", error);
-    return createErrorResponse(500, error.message);
+    return createErrorResponse(500, "Failed to set password");
   }
 
   return new Response(JSON.stringify({ success: true }), {
@@ -228,11 +228,11 @@ async function patchPortalUser(req: Request, profile: any) {
   // Only admins+ can change role and disabled status (not on themselves)
   if (callerRank >= 2 && !isSelf) {
     if (role !== undefined) {
-      // Cannot promote to a rank >= your own
-      if (callerRank < 3 && getRank(role) >= callerRank) {
+      // Cannot promote to a rank higher than your own
+      if (getRank(role) > callerRank) {
         return createErrorResponse(
           403,
-          "You cannot assign a role equal to or higher than your own",
+          "You cannot assign a role higher than your own",
         );
       }
       updates.role = role;
@@ -355,7 +355,7 @@ async function resendInvite(req: Request, profile: any) {
 
   if (error) {
     console.error("Error resending invite:", error);
-    return createErrorResponse(500, error.message);
+    return createErrorResponse(500, "Failed to resend invite");
   }
 
   return new Response(JSON.stringify({ success: true }), {

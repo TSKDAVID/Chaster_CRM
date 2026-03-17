@@ -39,6 +39,14 @@ export const MessageInput = ({
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type (only images)
+      if (!file.type.startsWith("image/")) {
+        return;
+      }
+      // Validate file size (max 5 MB)
+      if (file.size > 5 * 1024 * 1024) {
+        return;
+      }
       setAttachedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
     }

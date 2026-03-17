@@ -66,6 +66,10 @@ export type UserProfile = {
 const CACHE_TTL_MS = 30_000;
 const CACHE_TIMESTAMP_KEY = "RaStore.auth.current_sale_ts";
 
+// On first page load, always revalidate from DB so that out-of-band role
+// changes (SQL, edge functions) are picked up immediately.
+let hasRevalidatedThisSession = false;
+
 const fetchProfileFromDB = async (): Promise<UserProfile | undefined> => {
   const storage = getLocalStorage();
 
@@ -118,6 +122,13 @@ const getUserProfile = async (): Promise<UserProfile | undefined> => {
     const parsed = JSON.parse(cachedValue);
     // Invalidate stale cache missing required fields
     if (parsed.userType && parsed.role) {
+      // On first access this session, always revalidate from DB so role
+      // changes made outside the app (SQL, edge functions) are picked up.
+      if (!hasRevalidatedThisSession) {
+        hasRevalidatedThisSession = true;
+        fetchProfileFromDB();
+        return parsed; // return stale while revalidating
+      }
       // Check if cache is still fresh
       const ts = Number(storage?.getItem(CACHE_TIMESTAMP_KEY) ?? "0");
       if (Date.now() - ts < CACHE_TTL_MS) {
@@ -138,14 +149,35 @@ const getSale = getUserProfile;
 
 function clearCache() {
   const storage = getLocalStorage();
-  storage?.removeItem(IS_INITIALIZED_CACHE_KEY);
+  // Don't clear IS_INITIALIZED_CACHE_KEY — it's app-global, not user-specific.
+  // Clearing it after logout causes checkAuth to re-query init_state without
+  // a session, which can fail and redirect to sign-up instead of login.
   storage?.removeItem(CURRENT_SALE_CACHE_KEY);
   storage?.removeItem(CACHE_TIMESTAMP_KEY);
-  window.dispatchEvent(new Event("auth-profile-changed"));
+  // Clear react-admin's stored "redirect after login" path so that after
+  // user-switching, the new user always lands at "/" not the previous user's page.
+  storage?.removeItem("@react-admin/nextPathname");
 }
 
 export const authProvider: AuthProvider = {
   ...baseAuthProvider,
+  // Override checkError: ra-supabase-core logs out on both 401 AND 403.
+  // 403 is an RLS/permission denial — it should NOT cause a logout.
+  // Only a 401 (invalid/expired JWT) or missing session should trigger logout.
+  checkError: async (error) => {
+    const status = error?.status ?? error?.response?.status;
+    if (status === 401) {
+      return Promise.reject(error);
+    }
+    if (status === 400) {
+      // Supabase returns 400 when the session is missing
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session) {
+        return Promise.reject(error);
+      }
+    }
+    return Promise.resolve();
+  },
   login: async (params) => {
     if (params.ssoDomain) {
       const { error } = await supabase.auth.signInWithSSO({
@@ -159,18 +191,21 @@ export const authProvider: AuthProvider = {
     // Clear stale profile cache so the new user gets a fresh profile
     const storage = getLocalStorage();
     storage?.removeItem(CURRENT_SALE_CACHE_KEY);
+    storage?.removeItem("@react-admin/nextPathname");
 
     await baseAuthProvider.login(params);
 
-    // After login, fetch the new user's profile and redirect to the right place
-    const profile = await getUserProfile();
-    if (profile && profile.userType === "portal") {
-      return { redirectTo: "/portal_dashboard" };
-    }
+    // Return "/" so react-admin navigates to the root dashboard via SPA
+    // navigation — no full-page reload, no browser "loading" overlay.
+    return "/";
   },
   logout: async (params) => {
     clearCache();
-    return baseAuthProvider.logout(params);
+    // Dispatch profile-changed AFTER the base logout completes to avoid
+    // mid-logout re-renders that can cause a blank page.
+    const result = await baseAuthProvider.logout(params);
+    window.dispatchEvent(new Event("auth-profile-changed"));
+    return result;
   },
   checkAuth: async (params) => {
     // Users are on the set-password page, nothing to do

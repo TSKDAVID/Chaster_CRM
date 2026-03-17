@@ -79,12 +79,9 @@ export function ActivityLogIterator() {
 
       {/* Desktop: explicit Load More button */}
       {!isMobile && hasNextPage && (
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            fetchNextPage();
-          }}
+        <button
+          type="button"
+          onClick={() => fetchNextPage()}
           className="flex w-full justify-center text-sm underline hover:no-underline"
         >
           {isFetchingNextPage ? (
@@ -92,7 +89,7 @@ export function ActivityLogIterator() {
           ) : (
             translate("crm.activity.load_more")
           )}
-        </a>
+        </button>
       )}
 
       {/* Mobile: auto-load on scroll via IntersectionObserver */}

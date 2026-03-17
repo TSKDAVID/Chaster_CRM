@@ -85,10 +85,9 @@ async function mergeContacts(
     return await db.transaction().execute(async (trx) => {
       // Enable RLS by switching to authenticated role and setting user context
       await trx.executeQuery(CompiledQuery.raw("SET LOCAL ROLE authenticated"));
+      // Use parameterized query to prevent SQL injection
       await trx.executeQuery(
-        CompiledQuery.raw(
-          `SELECT set_config('request.jwt.claim.sub', '${userId}', true)`,
-        ),
+        sql`SELECT set_config('request.jwt.claim.sub', ${userId}, true)`.compile(db),
       );
 
       // 1. Fetch both contacts
@@ -180,9 +179,7 @@ Deno.serve(async (req: Request) =>
             console.error("Merge failed:", error);
             return createErrorResponse(
               500,
-              `Failed to merge contacts: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
+              "Failed to merge contacts",
             );
           }
         }

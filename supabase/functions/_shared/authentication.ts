@@ -45,8 +45,8 @@ export const AuthMiddleware = async (
     if (isValidJWT) return await next(req);
 
     return createErrorResponse(401, "Invalid authentication");
-  } catch (e) {
-    return createErrorResponse(401, e?.toString() || "Unauthorized");
+  } catch (_e) {
+    return createErrorResponse(401, "Unauthorized");
   }
 };
 
@@ -74,7 +74,7 @@ export const UserMiddleware = async (
     }
 
     return next(req, data.user);
-  } catch (err) {
-    return createErrorResponse(401, err?.toString() || "Unauthorized");
+  } catch (_err) {
+    return createErrorResponse(401, "Unauthorized");
   }
 };

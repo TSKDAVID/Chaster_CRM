@@ -17,19 +17,19 @@ import { OAuthConsentPage } from "@/components/supabase/oauth-consent-page";
 
 import companies from "../companies";
 import contacts from "../contacts";
-import { Dashboard } from "../dashboard/Dashboard";
 import { MobileDashboard } from "../dashboard/MobileDashboard";
 import deals from "../deals";
-import { Layout } from "../layout/Layout";
 import { MobileLayout } from "../layout/MobileLayout";
 import { ConditionalLayout } from "../portal/ConditionalLayout";
 import { ConditionalDashboard } from "../portal/ConditionalDashboard";
 import { SubscriptionPage } from "../portal/subscription/SubscriptionPage";
 import { UsageDashboard } from "../portal/usage/UsageDashboard";
-import { ProductConfigPage } from "../portal/config/ProductConfigPage";
+import { AIConfigPage } from "../portal/config/AIConfigPage";
+import { ChatWidgetPage } from "../portal/config/ChatWidgetPage";
 import { PortalStaffList } from "../portal/staff/PortalStaffList";
 import { PortalAccountPage } from "../portal/account/PortalAccountPage";
 import { MessagingPage } from "../messaging/MessagingPage";
+import { PlansManagement } from "../plans/PlansManagement";
 import { SignupPage } from "../login/SignupPage";
 import { ConfirmationRequired } from "../login/ConfirmationRequired";
 import { ImportPage } from "../misc/ImportPage";
@@ -260,6 +260,7 @@ const DesktopAdmin = (props: CoreAdminProps) => {
         <Route path={ImportPage.path} element={<ImportPage />} />
         <Route path="/messages" element={<MessagingPage />} />
         <Route path="/messages/:conversationId" element={<MessagingPage />} />
+        <Route path="/plan-management" element={<PlansManagement />} />
       </CustomRoutes>
       {/* CRM resources (hidden from portal users via canAccess) */}
       <Resource name="deals" {...deals} />
@@ -273,39 +274,51 @@ const DesktopAdmin = (props: CoreAdminProps) => {
       {/* Portal resources (hidden from internal users via canAccess) */}
       <Resource name="subscriptions" list={SubscriptionPage} />
       <Resource name="usage_records" list={UsageDashboard} />
-      <Resource name="product_configs" list={ProductConfigPage} />
+      <Resource name="product_configs" list={AIConfigPage} />
       <Resource name="portal_users" list={PortalStaffList} />
       <Resource name="portal_account" list={PortalAccountPage} />
       <Resource name="plans" />
-      <Resource name="chat_widget_configs" />
+      <Resource name="chat_widget_configs" list={ChatWidgetPage} />
       <Resource name="conversations" />
+      <Resource name="plan_modules" />
+      <Resource name="subscription_plan_modules" />
+      <Resource name="company_plan_modules" />
+      <Resource name="subscription_events" />
+      <Resource name="agent_types" />
+      <Resource name="company_agent_configs" />
+      <Resource name="knowledge_base_articles" />
+      <Resource name="brand_voice_configs" />
+      <Resource name="ai_conversation_logs" />
     </Admin>
   );
 };
 
-const MobileAdmin = (props: CoreAdminProps) => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        gcTime: 1000 * 60 * 60 * 24, // 24 hours
-        networkMode: "offlineFirst",
-      },
-      mutations: {
-        networkMode: "offlineFirst",
-      },
+// Stable QueryClient and persister outside component to avoid
+// recreating on every render (which destroys all cached queries).
+const mobileQueryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours
+      networkMode: "offlineFirst",
     },
-  });
-  const asyncStoragePersister = createAsyncStoragePersister({
-    storage: localStorage,
-  });
+    mutations: {
+      networkMode: "offlineFirst",
+    },
+  },
+});
+const mobileAsyncStoragePersister = createAsyncStoragePersister({
+  storage: localStorage,
+});
+
+const MobileAdmin = (props: CoreAdminProps) => {
 
   return (
     <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{ persister: asyncStoragePersister }}
+      client={mobileQueryClient}
+      persistOptions={{ persister: mobileAsyncStoragePersister }}
     >
       <Admin
-        queryClient={queryClient}
+        queryClient={mobileQueryClient}
         layout={MobileLayout}
         dashboard={MobileDashboard}
         {...props}
