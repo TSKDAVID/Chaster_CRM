@@ -15,7 +15,14 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePortalCompanyId } from "../usePortalCompanyId";
 
-export const ProductConfigPage = () => {
+type ProductConfigPageProps = {
+  /** When used as separate resources (`product_configs` vs `chat_widget_configs`), open the matching tab. */
+  defaultTab?: "ai-agent" | "chat-widget";
+};
+
+export const ProductConfigPage = ({
+  defaultTab = "ai-agent",
+}: ProductConfigPageProps) => {
   const companyId = usePortalCompanyId();
   const notify = useNotify();
 
@@ -41,7 +48,7 @@ export const ProductConfigPage = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="ai-agent">
+      <Tabs defaultValue={defaultTab}>
         <TabsList>
           <TabsTrigger value="ai-agent">AI Agent</TabsTrigger>
           <TabsTrigger value="chat-widget">Chat Widget</TabsTrigger>

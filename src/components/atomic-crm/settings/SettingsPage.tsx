@@ -27,8 +27,14 @@ import {
   type ConfigurationContextValue,
 } from "../root/ConfigurationContext";
 import { defaultConfiguration } from "../root/defaultConfiguration";
+import { UserPasswordChangeSection } from "./UserPasswordChangeSection";
 
 const SECTIONS = [
+  {
+    id: "account_password",
+    label: "crm.settings.sections.account_password",
+    fallback: "Account password",
+  },
   {
     id: "branding",
     label: "crm.settings.sections.branding",
@@ -189,6 +195,7 @@ const SettingsForm = () => {
 
 const SettingsFormFields = () => {
   const translate = useTranslate();
+  const { disableEmailPasswordAuthentication } = useConfigurationContext();
   const currencyChoices = useMemo(() => getCurrencyChoices(), []);
   const {
     watch,
@@ -271,6 +278,25 @@ const SettingsFormFields = () => {
 
       {/* Main content */}
       <div className="flex-1 min-w-0 max-w-2xl space-y-6">
+        <Card id="account_password">
+          <CardContent className="space-y-4">
+            <h2 className="text-xl font-semibold text-muted-foreground">
+              {translate("crm.settings.sections.account_password", {
+                smart_count: 2,
+              })}
+            </h2>
+            {!disableEmailPasswordAuthentication ? (
+              <UserPasswordChangeSection />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {translate("crm.settings.account_password_disabled", {
+                  _: "Password is managed by your identity provider.",
+                })}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Branding */}
         <Card id="branding">
           <CardContent className="space-y-4">

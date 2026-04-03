@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@/components/admin/use-theme";
-import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Item,
@@ -45,53 +44,14 @@ import MobileHeader from "../layout/MobileHeader";
 import ImageEditorField from "../misc/ImageEditorField";
 import type { CrmDataProvider } from "../providers/types";
 import type { SalesFormData } from "../types";
-
-const ChangePasswordButton = () => {
-  const translate = useTranslate();
-  const notify = useNotify();
-  const { identity } = useGetIdentity();
-  const dataProvider = useDataProvider<CrmDataProvider>();
-
-  const { mutate: updatePassword } = useMutation({
-    mutationKey: ["updatePassword"],
-    mutationFn: async () => {
-      if (!identity) {
-        throw new Error(
-          translate("crm.profile.record_not_found", {
-            _: "Record not found",
-          }),
-        );
-      }
-      return dataProvider.updatePassword(identity.id);
-    },
-    onSuccess: () => {
-      notify("crm.profile.password_reset_sent", {
-        messageArgs: {
-          _: "A reset password email has been sent to your email address",
-        },
-      });
-    },
-    onError: (e) => {
-      notify(`${e}`, { type: "error" });
-    },
-  });
-
-  return (
-    <Button
-      variant="outline"
-      className="w-full text-base h-auto"
-      onClick={() => updatePassword()}
-    >
-      <KeyRound className="size-5 mr-3" />
-      {translate("crm.profile.password.change")}
-    </Button>
-  );
-};
+import { useConfigurationContext } from "../root/ConfigurationContext";
+import { UserPasswordChangeSection } from "./UserPasswordChangeSection";
 
 export const SettingsPageMobile = () => {
   const translate = useTranslate();
   const authProvider = useAuthProvider();
   const logout = useLogout();
+  const { disableEmailPasswordAuthentication } = useConfigurationContext();
 
   if (!authProvider) return null;
 
@@ -111,7 +71,16 @@ export const SettingsPageMobile = () => {
           </div>
 
           <div className="mt-auto pt-6 space-y-3">
-            <ChangePasswordButton />
+            {!disableEmailPasswordAuthentication ? (
+              <div className="rounded-xl border bg-card p-4">
+                <SectionLabel>
+                  {translate("crm.settings.sections.account_password", {
+                    _: "Account password",
+                  })}
+                </SectionLabel>
+                <UserPasswordChangeSection />
+              </div>
+            ) : null}
             <Button
               variant="destructive"
               className="w-full text-base h-auto"

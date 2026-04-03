@@ -101,10 +101,15 @@ export const LoginPage = (props: { redirectTo?: string }) => {
         </div>
         <div className="flex flex-col justify-center w-full p-4 lg:p-8">
           <div className="w-full space-y-6 lg:mx-auto lg:w-[350px]">
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <h1 className="text-2xl font-semibold tracking-tight">
                 {translate("ra.auth.sign_in")}
               </h1>
+              <p className="text-sm text-muted-foreground">
+                {translate("crm.auth.login_subtitle", {
+                  _: "Sign in to your workspace or create the first account.",
+                })}
+              </p>
             </div>
             {disableEmailPasswordAuthentication ? null : (
               <Form className="space-y-8" onSubmit={handleSubmit}>
@@ -139,14 +144,18 @@ export const LoginPage = (props: { redirectTo?: string }) => {
               </SSOAuthButton>
             ) : null}
             {disableEmailPasswordAuthentication ? null : (
-              <Link
-                to={"/forgot-password"}
-                className="block text-sm text-center hover:underline"
-              >
-                {translate("ra-supabase.auth.forgot_password", {
-                  _: "Forgot password?",
-                })}
-              </Link>
+              <div className="flex flex-col gap-2 text-sm text-center">
+                <Link to={"/forgot-password"} className="hover:underline">
+                  {translate("ra-supabase.auth.forgot_password", {
+                    _: "Forgot password?",
+                  })}
+                </Link>
+                <Link to={"/sign-up"} className="hover:underline font-medium">
+                  {translate("crm.auth.sign_up_instead", {
+                    _: "Create an account / Sign up",
+                  })}
+                </Link>
+              </div>
             )}
           </div>
         </div>

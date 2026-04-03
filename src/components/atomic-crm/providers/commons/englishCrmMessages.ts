@@ -270,8 +270,12 @@ export const englishCrmMessages = {
       },
       create: {
         error: "An error occurred while creating the user.",
-        success:
-          "User created. They will soon receive an email to set their password.",
+        success: "User created.",
+        success_invite_sent:
+          "User created. An invitation email was sent (ask them to check spam too).",
+        success_no_invite: "User created.",
+        warn_invite_not_sent:
+          "User created, but the invitation email was not sent. Configure SMTP under Authentication or check Logs → Auth. Reason: %{detail}",
         title: "Create a new user",
       },
       edit: {
@@ -279,6 +283,18 @@ export const englishCrmMessages = {
         record_not_found: "Record not found",
         success: "User updated successfully",
         title: "Edit %{name}",
+      },
+      admin_password: {
+        title: "Password (super admin)",
+        help: "Set a new password for this user immediately, or send them the standard password-reset email (SMTP must be configured).",
+        set_button: "Set password",
+        send_recovery: "Send reset email",
+        dialog_title: "Set password for %{name}",
+        dialog_body:
+          "The user can sign in with this password right away. Share it through a secure channel.",
+        set_success: "Password updated for this user.",
+        recovery_sent:
+          "Password recovery email sent (if SMTP is configured in Auth settings).",
       },
       action: {
         new: "New user",
@@ -350,12 +366,20 @@ export const englishCrmMessages = {
         "If you're a registered user, you should receive a password recovery email shortly.",
       sign_in_failed: "Failed to log in.",
       sign_in_google_workspace: "Sign in with Google Workplace",
+      login_subtitle:
+        "Sign in to your workspace or create the first account if you are setting up Chaster.",
+      sign_up_instead: "Create an account / Sign up",
+      back_to_sign_in: "Back to sign in",
+      have_account_sign_in: "Already have an account? Sign in",
       signup: {
         create_account: "Create account",
         create_first_user:
           "Create the first user account to complete the setup.",
         creating: "Creating...",
         initial_user_created: "Initial user successfully created",
+        invite_only_title: "Invitation-only sign-up",
+        invite_only_body:
+          "This workspace is already set up. Ask your administrator to invite you, then use the link in your email.",
       },
       welcome_title: "Welcome to Chaster",
     },
@@ -470,8 +494,11 @@ export const englishCrmMessages = {
       title: "Settings",
       app_title: "App Title",
       sections: {
+        account_password: "Account password",
         branding: "Branding",
       },
+      account_password_disabled:
+        "Password is managed by your identity provider.",
       validation: {
         duplicate: "Duplicate %{display_name}: %{items}",
         in_use:
@@ -501,6 +528,17 @@ export const englishCrmMessages = {
       },
       password: {
         change: "Change password",
+        new: "New password",
+        save_new: "Save new password",
+        update_title: "Update password",
+        update_hint:
+          "Choose a new password for your account. You stay signed in after saving.",
+        email_reset_help:
+          "If you forgot your current password, we can email you a reset link instead.",
+        email_reset_cta: "Email me a reset link",
+        updated_inline: "Your password has been updated",
+        mismatch: "Passwords do not match",
+        too_short: "Password must be at least %{min} characters",
       },
       password_reset_sent:
         "A reset password email has been sent to your email address",

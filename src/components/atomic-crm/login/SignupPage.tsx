@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useDataProvider, useLogin, useNotify, useTranslate } from "ra-core";
 import { useForm, type SubmitHandler } from "react-hook-form";
-import { Navigate, useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,7 +70,13 @@ export const SignupPage = () => {
         });
     },
     onError: (error) => {
-      notify(error.message);
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Sign up failed";
+      notify(message, { type: "error" });
     },
   });
 
@@ -89,14 +95,43 @@ export const SignupPage = () => {
     return <LoginSkeleton />;
   }
 
-  // For the moment, we only allow one user to sign up. Other users must be created by the administrator.
-  if (isInitialized) {
-    return <Navigate to="/login" />;
-  }
-
   const onSubmit: SubmitHandler<SignUpData> = async (data) => {
     mutate(data);
   };
+
+  if (isInitialized) {
+    return (
+      <div className="h-screen p-8">
+        <div className="flex items-center gap-4">
+          <img
+            src={logo}
+            alt={title}
+            width={24}
+            className="filter brightness-0 invert"
+          />
+          <h1 className="text-xl font-semibold">{title}</h1>
+        </div>
+        <div className="max-w-sm mx-auto mt-20 space-y-4">
+          <h1 className="text-2xl font-bold">
+            {translate("crm.auth.signup.invite_only_title", {
+              _: "Invitation-only sign-up",
+            })}
+          </h1>
+          <p className="text-muted-foreground">
+            {translate("crm.auth.signup.invite_only_body", {
+              _: "This workspace is already set up. Ask your administrator to invite you, then use the link in your email.",
+            })}
+          </p>
+          <Button asChild className="w-full" variant="default">
+            <Link to="/login">
+              {translate("crm.auth.back_to_sign_in", { _: "Back to sign in" })}
+            </Link>
+          </Button>
+        </div>
+        <Notification />
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen p-8">
@@ -191,6 +226,14 @@ export const SignupPage = () => {
                   })}
                 </SSOAuthButton>
               ) : null}
+              <Link
+                to="/login"
+                className="block text-center text-sm text-muted-foreground hover:underline"
+              >
+                {translate("crm.auth.have_account_sign_in", {
+                  _: "Already have an account? Sign in",
+                })}
+              </Link>
             </div>
           </form>
         </div>

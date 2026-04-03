@@ -6,10 +6,17 @@ import { supabase } from "./supabase";
 
 const baseAuthProvider = supabaseAuthProvider(supabase, {
   getIdentity: async () => {
-    const sale = await getSale();
+    let sale = await getSale();
+
+    // Brief retry: auth session can be ready before the sales/portal_users row
+    // is visible in a follow-up read (trigger / replication timing).
+    if (sale == null) {
+      await new Promise((r) => setTimeout(r, 200));
+      sale = await fetchProfileFromDB();
+    }
 
     if (sale == null) {
-      throw new Error();
+      throw new Error("Unable to load user profile");
     }
 
     return {
@@ -22,7 +29,8 @@ const baseAuthProvider = supabaseAuthProvider(supabase, {
 
 // To speed up checks, we cache the initialization state
 // and the current sale in the local storage. They are cleared on logout.
-const IS_INITIALIZED_CACHE_KEY = "RaStore.auth.is_initialized";
+/** Exported so sign-up can set the same key after creating the first user. */
+export const IS_INITIALIZED_CACHE_KEY = "RaStore.auth.is_initialized";
 const CURRENT_SALE_CACHE_KEY = "RaStore.auth.current_sale";
 
 function getLocalStorage(): Storage | null {
@@ -39,8 +47,24 @@ export async function getIsInitialized() {
     return cachedValue === "true";
   }
 
-  const { data } = await supabase.from("init_state").select("is_initialized");
-  const isInitialized = data?.at(0)?.is_initialized > 0;
+  const { data, error } = await supabase
+    .from("init_state")
+    .select("is_initialized")
+    .maybeSingle();
+
+  // Do not treat transient errors as "CRM not initialized": that signs the user
+  // out and sends them to /sign-up, causing a redirect loop after a successful login.
+  if (error) {
+    console.warn("[auth] init_state query failed:", error.message);
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session) {
+      return true;
+    }
+    return false;
+  }
+
+  const raw = data?.is_initialized;
+  const isInitialized = Number(raw) > 0;
 
   if (isInitialized) {
     storage?.setItem(IS_INITIALIZED_CACHE_KEY, "true");
@@ -194,6 +218,21 @@ export const authProvider: AuthProvider = {
     storage?.removeItem("@react-admin/nextPathname");
 
     await baseAuthProvider.login(params);
+
+    // Load profile before navigation so getIdentity / layout do not run with an
+    // empty cache while the session is new (avoids auth check failures and loops).
+    let profile = await getUserProfile();
+    if (profile == null) {
+      await new Promise((r) => setTimeout(r, 250));
+      profile = await fetchProfileFromDB();
+    }
+    if (profile == null) {
+      await supabase.auth.signOut();
+      clearCache();
+      throw new Error(
+        "No CRM profile for this login: no sales / portal_users row linked to this Auth user. After a restore or pause, your admin must link public.sales.user_id to auth.users.id, or you can sign up as the first user if the project is empty.",
+      );
+    }
 
     // Return "/" so react-admin navigates to the root dashboard via SPA
     // navigation — no full-page reload, no browser "loading" overlay.

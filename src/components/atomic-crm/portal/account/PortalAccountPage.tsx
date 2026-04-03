@@ -9,11 +9,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useConfigurationContext } from "../../root/ConfigurationContext";
+import { UserPasswordChangeSection } from "../../settings/UserPasswordChangeSection";
 import { usePortalCompanyId, usePortalProfile } from "../usePortalCompanyId";
 
 export const PortalAccountPage = () => {
   const companyId = usePortalCompanyId();
   const profile = usePortalProfile();
+  const { disableEmailPasswordAuthentication } = useConfigurationContext();
 
   const { data: company } = useGetOne(
     "companies",
@@ -54,6 +57,20 @@ export const PortalAccountPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {!disableEmailPasswordAuthentication ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Password</CardTitle>
+            <CardDescription>
+              Update your password or request a reset link by email.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <UserPasswordChangeSection />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {company && (
         <Card>

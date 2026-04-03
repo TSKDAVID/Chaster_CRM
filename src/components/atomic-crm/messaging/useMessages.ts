@@ -3,14 +3,43 @@ import { supabase } from "../providers/supabase/supabase";
 import { ATTACHMENTS_BUCKET } from "../providers/commons/attachments";
 import type { DmMessage } from "./types";
 
+/** True if a server row is almost certainly the same message as an optimistic one. */
+function serverCoversOptimistic(opt: DmMessage, server: DmMessage[]): boolean {
+  return server.some((s) => {
+    if (s.id < 0 || s.sender_id !== opt.sender_id) return false;
+    if (s.body !== opt.body) return false;
+    const optImg = Boolean(opt.image_url);
+    const sImg = Boolean(s.image_url);
+    if (optImg !== sImg) return false;
+    const dt =
+      new Date(s.created_at).getTime() - new Date(opt.created_at).getTime();
+    if (Math.abs(dt) > 120_000) return false;
+    return true;
+  });
+}
+
+function mergeServerWithOptimistic(
+  server: DmMessage[],
+  prev: DmMessage[],
+  conversationId: number,
+): DmMessage[] {
+  const optimistics = prev.filter(
+    (m) => m.id < 0 && m.conversation_id === conversationId,
+  );
+  if (optimistics.length === 0) return server;
+  const keep = optimistics.filter((o) => !serverCoversOptimistic(o, server));
+  const merged = [...server, ...keep];
+  merged.sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  return merged;
+}
+
 export function useMessages(conversationId: number | null) {
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const currentUidRef = useRef<string | null>(null);
-  // Track optimistic temp IDs so realtime can replace them
-  const pendingRef = useRef<
-    Map<string, number>
-  >(new Map());
 
   const fetchMessages = useCallback(async () => {
     if (!conversationId) {
@@ -31,8 +60,10 @@ export function useMessages(conversationId: number | null) {
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
-    setMessages(data ?? []);
-    pendingRef.current.clear();
+    const server = data ?? [];
+    setMessages((prev) =>
+      mergeServerWithOptimistic(server, prev, conversationId),
+    );
     setLoading(false);
 
     if (data && currentUidRef.current) {
@@ -54,6 +85,13 @@ export function useMessages(conversationId: number | null) {
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      currentUidRef.current = session?.user?.id ?? null;
+    });
+  }, [conversationId]);
 
   // Realtime
   useEffect(() => {
@@ -136,6 +174,25 @@ export function useMessages(conversationId: number | null) {
 
       setMessages((prev) => [...prev, optimistic]);
 
+      const applyConfirmedMessage = (real: DmMessage) => {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === real.id)) return prev;
+          const optimisticIdx = prev.findIndex((m) => m.id === tempId);
+          if (optimisticIdx === -1) {
+            return [...prev, real];
+          }
+          const opt = prev[optimisticIdx];
+          const keepBlobUrl =
+            opt.image_url?.startsWith("blob:") && real.image_url;
+          const next = [...prev];
+          next[optimisticIdx] = {
+            ...real,
+            image_url: keepBlobUrl ? opt.image_url : real.image_url,
+          };
+          return next;
+        });
+      };
+
       const doInsert = (imageUrl?: string) => {
         const row: Record<string, unknown> = {
           conversation_id: conversationId,
@@ -144,17 +201,21 @@ export function useMessages(conversationId: number | null) {
         };
         if (imageUrl) row.image_url = imageUrl;
 
-        supabase
+        void supabase
           .from("dm_messages")
           .insert(row)
-          .then(({ error }) => {
+          .select()
+          .single()
+          .then(({ data, error }) => {
             if (error) {
               console.error("Failed to send message:", error);
               setMessages((prev) => prev.filter((m) => m.id !== tempId));
               if (localUrl) URL.revokeObjectURL(localUrl);
+              return;
             }
-            // Don't revoke blob URL here — keep it alive so the image
-            // stays visible until the conversation changes or unmounts.
+            if (data) {
+              applyConfirmedMessage(data as DmMessage);
+            }
           });
       };
 

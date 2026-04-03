@@ -12,26 +12,25 @@ import type {
   DealNote,
   RAFile,
   Sale,
+  SalesCreateResult,
   SalesFormData,
   SignUpData,
 } from "../../types";
 import type { ConfigurationContextValue } from "../../root/ConfigurationContext";
 import { ATTACHMENTS_BUCKET } from "../commons/attachments";
-import { getIsInitialized } from "./authProvider";
-import { supabase } from "./supabase";
+import { getSupabaseUrl } from "@/lib/supabaseUrl";
+import { getIsInitialized, IS_INITIALIZED_CACHE_KEY } from "./authProvider";
+import { supabase, supabasePublishableKey } from "./supabase";
 
-if (import.meta.env.VITE_SUPABASE_URL === undefined) {
-  throw new Error("Please set the VITE_SUPABASE_URL environment variable");
-}
-if (import.meta.env.VITE_SB_PUBLISHABLE_KEY === undefined) {
+const resolvedSupabaseUrl = getSupabaseUrl();
+if (!resolvedSupabaseUrl) {
   throw new Error(
-    "Please set the VITE_SB_PUBLISHABLE_KEY environment variable",
+    "Please set VITE_SUPABASE_URL (or VITE_SUPABASE_BACKEND_URL with VITE_SUPABASE_DEV_PROXY for local dev)",
   );
 }
-
 const baseDataProvider = supabaseDataProvider({
-  instanceUrl: import.meta.env.VITE_SUPABASE_URL,
-  apiKey: import.meta.env.VITE_SB_PUBLISHABLE_KEY,
+  instanceUrl: resolvedSupabaseUrl,
+  apiKey: supabasePublishableKey,
   supabaseClient: supabase,
   sortOrder: "asc,desc.nullslast" as any,
 });
@@ -93,24 +92,50 @@ const dataProviderWithCustomMethods = {
   },
 
   async signUp({ email, password, first_name, last_name }: SignUpData) {
-    const response = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name,
-          last_name,
+    let response: Awaited<ReturnType<typeof supabase.auth.signUp>>;
+    try {
+      response = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name,
+            last_name,
+          },
         },
-      },
-    });
-
-    if (!response.data?.user || response.error) {
-      console.error("signUp.error", response.error);
-      throw new Error(response?.error?.message || "Failed to create account");
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("signUp.network", e);
+      if (
+        msg === "Failed to fetch" ||
+        msg.toLowerCase().includes("network") ||
+        msg.toLowerCase().includes("fetch")
+      ) {
+        throw new Error(
+          "Cannot reach Supabase. Check VITE_SUPABASE_URL / VITE_SB_PUBLISHABLE_KEY in .env, CORS, and the [CRM][Supabase fetch] log in the browser console.",
+        );
+      }
+      throw e instanceof Error ? e : new Error(String(e));
     }
 
-    // Update the is initialized cache
-    getIsInitialized._is_initialized_cache = true;
+    if (!response.data?.user || response.error) {
+      const raw = response?.error?.message || "Failed to create account";
+      console.error("signUp.error", response.error);
+      if (
+        raw === "Failed to fetch" ||
+        raw.toLowerCase().includes("fetch")
+      ) {
+        throw new Error(
+          "Cannot reach Supabase. Check .env URLs/keys and open the browser console for [CRM][Supabase fetch] details.",
+        );
+      }
+      throw new Error(raw);
+    }
+
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem(IS_INITIALIZED_CACHE_KEY, "true");
+    }
 
     return {
       id: response.data.user.id,
@@ -119,7 +144,24 @@ const dataProviderWithCustomMethods = {
     };
   },
   async salesCreate(body: SalesFormData) {
-    const { data, error } = await supabase.functions.invoke<{ data: Sale }>(
+    type SalesCreateFnResponse = {
+      data: Sale;
+      meta?: {
+        inviteEmail?: {
+          attempted: boolean;
+          sent?: boolean;
+          skippedReason?: string;
+          error?: {
+            message?: string;
+            status?: number;
+            code?: string;
+            name?: string;
+          };
+        };
+      };
+    };
+
+    const { data, error } = await supabase.functions.invoke<SalesCreateFnResponse>(
       "users",
       {
         method: "POST",
@@ -139,14 +181,40 @@ const dataProviderWithCustomMethods = {
       throw new Error(errorDetails?.message || "Failed to create the user");
     }
 
-    return data.data;
+    const inv = data.meta?.inviteEmail;
+    if (inv?.attempted === true && inv.sent === false && inv.error) {
+      console.warn(
+        "[CRM] User created in CRM/Auth, but invitation email was not sent.",
+        "Supabase Auth error:",
+        inv.error,
+        "Check Dashboard → Authentication → SMTP, and Logs → Auth for details.",
+      );
+    }
+
+    const result: SalesCreateResult = {
+      ...data.data,
+      inviteMeta: data.meta?.inviteEmail,
+    };
+    return result;
   },
   async salesUpdate(
     id: Identifier,
-    data: Partial<Omit<SalesFormData, "password">>,
+    data: Partial<Omit<SalesFormData, "password">> & {
+      new_password?: string;
+      send_password_recovery?: boolean;
+    },
   ) {
-    const { email, first_name, last_name, role, administrator, avatar, disabled } =
-      data;
+    const {
+      email,
+      first_name,
+      last_name,
+      role,
+      administrator,
+      avatar,
+      disabled,
+      new_password,
+      send_password_recovery,
+    } = data;
 
     const { data: updatedData, error } = await supabase.functions.invoke<{
       data: Sale;
@@ -161,15 +229,36 @@ const dataProviderWithCustomMethods = {
         administrator,
         disabled,
         avatar,
+        new_password,
+        send_password_recovery,
       },
     });
 
     if (!updatedData || error) {
-      console.error("salesCreate.error", error);
-      throw new Error("Failed to update account manager");
+      console.error("salesUpdate.error", error);
+      const errorDetails = await (async () => {
+        try {
+          return (await error?.context?.json()) ?? {};
+        } catch {
+          return {};
+        }
+      })();
+      throw new Error(
+        (errorDetails as { message?: string }).message ||
+          error?.message ||
+          "Failed to update account manager",
+      );
     }
 
     return updatedData.data;
+  },
+  async changeOwnPassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
   },
   async updatePassword(id: Identifier) {
     const { data: passwordUpdated, error } =

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X } from "lucide-react";
+import { getSupabaseUrl } from "@/lib/supabaseUrl";
 import { usePortalCompanyId, usePortalProfile } from "../usePortalCompanyId";
 import { supabase } from "../../providers/supabase/supabase";
 
@@ -37,7 +38,7 @@ export const PortalStaffInvite = ({
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/portal_users`,
+        `${getSupabaseUrl()}/functions/v1/portal_users`,
         {
           method: "POST",
           headers: {

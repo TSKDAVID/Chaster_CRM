@@ -29,6 +29,19 @@ export type SalesFormData = {
   disabled: boolean;
 };
 
+/** Optional details from POST /functions/v1/users (Supabase only). */
+export type SalesCreateInviteMeta = {
+  attempted: boolean;
+  sent?: boolean;
+  skippedReason?: string;
+  error?: {
+    message?: string;
+    status?: number;
+    code?: string;
+    name?: string;
+  };
+};
+
 export type Sale = {
   first_name: string;
   last_name: string;
@@ -51,6 +64,9 @@ export type Sale = {
    */
   password?: string;
 } & Pick<RaRecord, "id">;
+
+/** Return type of dataProvider.salesCreate (inviteMeta only set with Supabase). */
+export type SalesCreateResult = Sale & { inviteMeta?: SalesCreateInviteMeta };
 
 export type Company = {
   name: string;

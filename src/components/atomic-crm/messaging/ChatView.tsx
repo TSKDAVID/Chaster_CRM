@@ -69,7 +69,7 @@ export const ChatView = ({
 
       {/* Messages area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
-        {loading ? (
+        {loading && messages.length === 0 ? (
           <div className="flex justify-center py-12">
             <p className="text-sm text-muted-foreground">Loading...</p>
           </div>

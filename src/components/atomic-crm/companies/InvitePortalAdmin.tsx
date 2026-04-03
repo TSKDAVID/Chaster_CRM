@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ShieldPlus } from "lucide-react";
+import { getSupabaseUrl } from "@/lib/supabaseUrl";
 import { supabase } from "../providers/supabase/supabase";
 import type { Company } from "../types";
 
@@ -34,7 +35,7 @@ export const InvitePortalAdmin = () => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/portal_users`,
+        `${getSupabaseUrl()}/functions/v1/portal_users`,
         {
           method: "POST",
           headers: {

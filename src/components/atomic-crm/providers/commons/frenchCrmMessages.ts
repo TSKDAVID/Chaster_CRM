@@ -275,8 +275,12 @@ export const frenchCrmMessages = {
       create: {
         error:
           "Une erreur s'est produite lors de la création de l'utilisateur.",
-        success:
-          "Utilisateur créé. Ils recevront prochainement un email pour définir leur mot de passe.",
+        success: "Utilisateur créé.",
+        success_invite_sent:
+          "Utilisateur créé. Un e-mail d'invitation a été envoyé (vérifiez aussi les courriers indésirables).",
+        success_no_invite: "Utilisateur créé.",
+        warn_invite_not_sent:
+          "Utilisateur créé, mais l'e-mail d'invitation n'a pas été envoyé. Configurez SMTP dans Authentification ou consultez Journaux → Auth. Motif : %{detail}",
         title: "Créer un nouvel utilisateur",
       },
       edit: {
@@ -284,6 +288,18 @@ export const frenchCrmMessages = {
         record_not_found: "Enregistrement introuvable",
         success: "Utilisateur mis à jour avec succès",
         title: "Modifier %{name}",
+      },
+      admin_password: {
+        title: "Mot de passe (super admin)",
+        help: "Définissez immédiatement un nouveau mot de passe pour cet utilisateur, ou envoyez l'e-mail standard de réinitialisation (SMTP requis).",
+        set_button: "Définir le mot de passe",
+        send_recovery: "Envoyer l'e-mail de réinitialisation",
+        dialog_title: "Définir le mot de passe pour %{name}",
+        dialog_body:
+          "L'utilisateur pourra se connecter avec ce mot de passe tout de suite. Transmettez-le par un canal sécurisé.",
+        set_success: "Mot de passe mis à jour pour cet utilisateur.",
+        recovery_sent:
+          "E-mail de réinitialisation envoyé (si SMTP est configuré dans Authentification).",
       },
       action: {
         new: "Nouvel utilisateur",
@@ -355,12 +371,20 @@ export const frenchCrmMessages = {
         "Si vous êtes un utilisateur enregistré, vous devriez recevoir prochainement un e-mail de récupération de mot de passe.",
       sign_in_failed: "Échec de la connexion.",
       sign_in_google_workspace: "Connectez-vous avec Google Workplace",
+      login_subtitle:
+        "Connectez-vous à votre espace ou créez le premier compte si vous configurez Chaster.",
+      sign_up_instead: "Créer un compte / S'inscrire",
+      back_to_sign_in: "Retour à la connexion",
+      have_account_sign_in: "Déjà un compte ? Se connecter",
       signup: {
         create_account: "Créer un compte",
         create_first_user:
           "Créez le premier compte utilisateur pour terminer la configuration.",
         creating: "Création...",
         initial_user_created: "Utilisateur initial créé avec succès",
+        invite_only_title: "Inscription sur invitation uniquement",
+        invite_only_body:
+          "Cet espace est déjà configuré. Demandez une invitation à votre administrateur, puis utilisez le lien reçu par e-mail.",
       },
       welcome_title: "Bienvenue sur Chaster",
     },
@@ -476,8 +500,11 @@ export const frenchCrmMessages = {
       title: "Paramètres",
       app_title: "Titre de l'application",
       sections: {
+        account_password: "Mot de passe du compte",
         branding: "Image de marque",
       },
+      account_password_disabled:
+        "Le mot de passe est géré par votre fournisseur d'identité.",
       validation: {
         duplicate: "%{display_name} en double : %{items}",
         in_use:
@@ -507,6 +534,18 @@ export const frenchCrmMessages = {
       },
       password: {
         change: "Changer le mot de passe",
+        new: "Nouveau mot de passe",
+        save_new: "Enregistrer le nouveau mot de passe",
+        update_title: "Mettre à jour le mot de passe",
+        update_hint:
+          "Choisissez un nouveau mot de passe. Vous restez connecté après l'enregistrement.",
+        email_reset_help:
+          "Si vous avez oublié votre mot de passe actuel, nous pouvons vous envoyer un lien de réinitialisation.",
+        email_reset_cta: "M'envoyer un lien par e-mail",
+        updated_inline: "Votre mot de passe a été mis à jour",
+        mismatch: "Les mots de passe ne correspondent pas",
+        too_short:
+          "Le mot de passe doit comporter au moins %{min} caractères",
       },
       password_reset_sent:
         "Un e-mail de réinitialisation du mot de passe a été envoyé à votre adresse e-mail",

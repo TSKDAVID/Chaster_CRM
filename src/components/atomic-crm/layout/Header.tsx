@@ -1,4 +1,4 @@
-import { Import, Settings, User, Users } from "lucide-react";
+import { Import, Settings, User } from "lucide-react";
 import { CanAccess, useTranslate, useUserMenu } from "ra-core";
 import { Link, matchPath, useLocation } from "react-router";
 import { RefreshButton } from "@/components/admin/refresh-button";
@@ -23,6 +23,8 @@ const Header = () => {
     currentPath = "/companies";
   } else if (matchPath("/deals/*", location.pathname)) {
     currentPath = "/deals";
+  } else if (matchPath("/sales/*", location.pathname)) {
+    currentPath = "/sales";
   } else if (matchPath("/messages/*", location.pathname)) {
     currentPath = "/messages";
   } else {
@@ -79,6 +81,15 @@ const Header = () => {
                     to="/deals"
                     isActive={currentPath === "/deals"}
                   />
+                  <CanAccess resource="sales" action="list">
+                    <NavigationTab
+                      label={translate("resources.sales.name", {
+                        smart_count: 2,
+                      })}
+                      to="/sales"
+                      isActive={currentPath === "/sales"}
+                    />
+                  </CanAccess>
                   <NavigationTab
                     label="Messages"
                     to="/messages"
@@ -91,9 +102,6 @@ const Header = () => {
                 <RefreshButton />
                 <UserMenu>
                   <ProfileMenu />
-                  <CanAccess resource="sales" action="list">
-                    <UsersMenu />
-                  </CanAccess>
                   <CanAccess resource="configuration" action="edit">
                     <SettingsMenu />
                   </CanAccess>
@@ -128,22 +136,6 @@ const NavigationTab = ({
     {label}
   </Link>
 );
-
-const UsersMenu = () => {
-  const translate = useTranslate();
-  const userMenuContext = useUserMenu();
-  if (!userMenuContext) {
-    throw new Error("<UsersMenu> must be used inside <UserMenu?");
-  }
-  return (
-    <DropdownMenuItem asChild onClick={userMenuContext.onClose}>
-      <Link to="/sales" className="flex items-center gap-2">
-        <Users />
-        {translate("resources.sales.name", { smart_count: 2 })}
-      </Link>
-    </DropdownMenuItem>
-  );
-};
 
 const ProfileMenu = () => {
   const translate = useTranslate();

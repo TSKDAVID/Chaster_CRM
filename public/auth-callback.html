@@ -130,9 +130,17 @@
         };
 
         function interceptAuthCallback() {
-                const hash = window.location.hash;
-                const {access_token, refresh_token, type} = getUrlParams();
-                window.location.href = `./#/auth-callback?access_token=${access_token}&refresh_token=${refresh_token}&type=${type}`;
+                const { access_token, refresh_token, type } = getUrlParams();
+                if (!access_token || !refresh_token) {
+                    window.location.href = './#/login';
+                    return;
+                }
+                const params = new URLSearchParams({
+                    access_token,
+                    refresh_token,
+                });
+                if (type) params.set('type', type);
+                window.location.href = './#/auth-callback?' + params.toString();
         }
     
         // Call the function to intercept the auth callback

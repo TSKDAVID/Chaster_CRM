@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { CrmDataProvider } from "../providers/types";
 import type { Sale, SalesFormData } from "../types";
 import { SalesInputs } from "./SalesInputs";
+import { SalesSuperAdminPassword } from "./SalesSuperAdminPassword";
 
 function EditToolbar() {
   return (
@@ -79,6 +80,7 @@ export function SalesEdit() {
           >
             <SaleEditTitle />
             <SalesInputs />
+            <SalesSuperAdminPassword />
           </SimpleForm>
         </CardContent>
       </Card>

@@ -15,6 +15,7 @@ import type {
   Deal,
   DealNote,
   Sale,
+  SalesCreateResult,
   SalesFormData,
   SignUpData,
   Task,
@@ -229,7 +230,9 @@ export const createDataProvider = ({
         password,
       };
     },
-    salesCreate: async ({ ...data }: SalesFormData): Promise<Sale> => {
+    salesCreate: async ({
+      ...data
+    }: SalesFormData): Promise<SalesCreateResult> => {
       const response = await dataProvider.create("sales", {
         data: {
           ...data,
@@ -237,12 +240,19 @@ export const createDataProvider = ({
         },
       });
 
-      return response.data;
+      return { ...response.data, inviteMeta: undefined };
     },
     salesUpdate: async (
       id: Identifier,
-      data: Partial<Omit<SalesFormData, "password">>,
+      data: Partial<Omit<SalesFormData, "password">> & {
+        new_password?: string;
+        send_password_recovery?: boolean;
+      },
     ): Promise<Sale> => {
+      const { new_password, send_password_recovery, ...rest } = data;
+      void new_password;
+      void send_password_recovery;
+
       const { data: previousData } = await dataProvider.getOne<Sale>("sales", {
         id,
       });
@@ -253,10 +263,13 @@ export const createDataProvider = ({
 
       const { data: sale } = await dataProvider.update<Sale>("sales", {
         id,
-        data,
+        data: rest,
         previousData,
       });
       return { ...sale, user_id: sale.id.toString() };
+    },
+    changeOwnPassword: async (_newPassword: string): Promise<void> => {
+      /* demo / FakeRest: no-op */
     },
     isInitialized: async (): Promise<boolean> => {
       const sales = await dataProvider.getList<Sale>("sales", {

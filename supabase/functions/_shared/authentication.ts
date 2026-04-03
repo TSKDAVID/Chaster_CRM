@@ -3,12 +3,24 @@ import * as jose from "jsr:@panva/jose@6";
 import { createClient, type User } from "jsr:@supabase/supabase-js@2";
 import { createErrorResponse } from "./utils.ts";
 
+const supabaseUrlForJwt = Deno.env.get("SUPABASE_URL") ?? "";
+
 const SUPABASE_JWT_ISSUER =
-  Deno.env.get("SB_JWT_ISSUER") ?? Deno.env.get("SUPABASE_URL") + "/auth/v1";
+  Deno.env.get("SB_JWT_ISSUER") ?? `${supabaseUrlForJwt}/auth/v1`;
 
 const SUPABASE_JWT_KEYS = jose.createRemoteJWKSet(
-  new URL(Deno.env.get("SUPABASE_URL")! + "/auth/v1/.well-known/jwks.json"),
+  new URL(`${supabaseUrlForJwt}/auth/v1/.well-known/jwks.json`),
 );
+
+/** Platform injects SUPABASE_ANON_KEY; local .env may use SB_PUBLISHABLE_KEY only. */
+function getSupabasePublicApiKey(): string {
+  return (
+    Deno.env.get("SUPABASE_ANON_KEY") ??
+    Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
+    Deno.env.get("SB_PUBLISHABLE_KEY") ??
+    ""
+  );
+}
 
 function getAuthToken(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -62,9 +74,19 @@ export const UserMiddleware = async (
 
   try {
     const authHeader = req.headers.get("Authorization")!;
+    const publicApiKey = getSupabasePublicApiKey();
+    if (!publicApiKey) {
+      console.error(
+        "UserMiddleware: missing SUPABASE_ANON_KEY (or SB_PUBLISHABLE_KEY for local dev)",
+      );
+      return createErrorResponse(
+        500,
+        "Edge function misconfigured: set SUPABASE_ANON_KEY or deploy with default project secrets",
+      );
+    }
     const localClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SB_PUBLISHABLE_KEY") ?? "",
+      publicApiKey,
       { global: { headers: { Authorization: authHeader } } },
     );
 

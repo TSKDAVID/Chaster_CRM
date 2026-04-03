@@ -15,6 +15,26 @@ function getRank(role: string): number {
   return ROLE_RANK[role] ?? 0;
 }
 
+/** Safe JSON for logs / API meta (no secrets). */
+function serializeAuthAdminError(err: unknown): {
+  message?: string;
+  status?: number;
+  code?: string;
+  name?: string;
+} {
+  if (err == null) return {};
+  if (typeof err === "object") {
+    const o = err as Record<string, unknown>;
+    return {
+      message: typeof o.message === "string" ? o.message : undefined,
+      status: typeof o.status === "number" ? o.status : undefined,
+      code: typeof o.code === "string" ? o.code : undefined,
+      name: typeof o.name === "string" ? o.name : undefined,
+    };
+  }
+  return { message: String(err) };
+}
+
 async function updateSaleDisabled(user_id: string, disabled: boolean) {
   return await supabaseAdmin
     .from("sales")
@@ -112,6 +132,15 @@ async function inviteUser(req: Request, currentUserSale: any) {
 
   let user = data?.user;
 
+  let inviteEmailMeta:
+    | {
+        attempted: boolean;
+        sent?: boolean;
+        skippedReason?: string;
+        error?: ReturnType<typeof serializeAuthAdminError>;
+      }
+    | undefined;
+
   if (!user && userError?.code === "email_exists") {
     const { data, error } = await supabaseAdmin.rpc("get_user_id_by_email", {
       email,
@@ -154,6 +183,12 @@ async function inviteUser(req: Request, currentUserSale: any) {
       return new Response(
         JSON.stringify({
           data: sale,
+          meta: {
+            inviteEmail: {
+              attempted: false,
+              skippedReason: "email_exists_linked_sales",
+            },
+          },
         }),
         {
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -176,12 +211,30 @@ async function inviteUser(req: Request, currentUserSale: any) {
       console.error("Error inviting user: undefined user");
       return createErrorResponse(500, "Internal Server Error");
     }
-    const { error: emailError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(email);
 
-    if (emailError) {
-      console.error(`Error inviting user, email_error=${emailError}`);
-      return createErrorResponse(500, "Failed to send invitation mail");
+    const hasInitialPassword =
+      typeof password === "string" && password.length > 0;
+
+    if (hasInitialPassword) {
+      inviteEmailMeta = {
+        attempted: false,
+        skippedReason: "password_provided",
+      };
+    } else {
+      inviteEmailMeta = { attempted: true };
+      const { error: emailError } =
+        await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+
+      if (emailError) {
+        inviteEmailMeta.sent = false;
+        inviteEmailMeta.error = serializeAuthAdminError(emailError);
+        console.error(
+          "[users] inviteUserByEmail failed (user still created):",
+          JSON.stringify(inviteEmailMeta.error),
+        );
+      } else {
+        inviteEmailMeta.sent = true;
+      }
     }
   }
 
@@ -192,6 +245,12 @@ async function inviteUser(req: Request, currentUserSale: any) {
     return new Response(
       JSON.stringify({
         data: sale,
+        meta: {
+          inviteEmail: inviteEmailMeta ?? {
+            attempted: false,
+            skippedReason: "not_tracked",
+          },
+        },
       }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -201,6 +260,26 @@ async function inviteUser(req: Request, currentUserSale: any) {
     console.error("Error patching sale:", e);
     return createErrorResponse(500, "Internal Server Error");
   }
+}
+
+async function triggerPasswordRecoveryEmail(email: string) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const res = await fetch(`${supabaseUrl}/auth/v1/recover`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("[users] auth recover failed:", res.status, text.slice(0, 300));
+    return false;
+  }
+  return true;
 }
 
 async function patchUser(req: Request, currentUserSale: any) {
@@ -213,6 +292,8 @@ async function patchUser(req: Request, currentUserSale: any) {
     role,
     administrator,
     disabled,
+    new_password,
+    send_password_recovery,
   } = await req.json();
 
   const { data: sale } = await supabaseAdmin
@@ -242,20 +323,66 @@ async function patchUser(req: Request, currentUserSale: any) {
     );
   }
 
-  const { data, error: userError } =
-    await supabaseAdmin.auth.admin.updateUserById(sale.user_id, {
-      email,
-      ban_duration: disabled ? "87600h" : "none",
-      user_metadata: { first_name, last_name },
-    });
+  if (send_password_recovery === true) {
+    if (callerRank !== 3 || isSelf) {
+      return createErrorResponse(
+        403,
+        "Only super admins can send another user's password recovery email",
+      );
+    }
+    const ok = await triggerPasswordRecoveryEmail(sale.email);
+    if (!ok) {
+      return createErrorResponse(
+        500,
+        "Could not send password recovery email (check Auth logs / SMTP)",
+      );
+    }
+  }
 
-  if (!data?.user || userError) {
-    console.error("Error patching user:", userError);
-    return createErrorResponse(500, "Internal Server Error");
+  const authPatch: {
+    email?: string;
+    password?: string;
+    ban_duration?: string;
+    user_metadata?: Record<string, string>;
+  } = {};
+
+  if (typeof email === "string" && email.length > 0) {
+    authPatch.email = email;
+  }
+  if (typeof new_password === "string" && new_password.length > 0) {
+    if (callerRank !== 3 || isSelf) {
+      return createErrorResponse(
+        403,
+        "Only super admins can set another user's password",
+      );
+    }
+    if (new_password.length < 6) {
+      return createErrorResponse(400, "Password must be at least 6 characters");
+    }
+    authPatch.password = new_password;
+  }
+  if (typeof disabled === "boolean") {
+    authPatch.ban_duration = disabled ? "87600h" : "none";
+  }
+  const meta: Record<string, string> = {};
+  if (typeof first_name === "string") meta.first_name = first_name;
+  if (typeof last_name === "string") meta.last_name = last_name;
+  if (Object.keys(meta).length > 0) {
+    authPatch.user_metadata = meta;
+  }
+
+  if (Object.keys(authPatch).length > 0) {
+    const { data: userData, error: userError } =
+      await supabaseAdmin.auth.admin.updateUserById(sale.user_id, authPatch);
+
+    if (!userData?.user || userError) {
+      console.error("Error patching user:", userError);
+      return createErrorResponse(500, "Internal Server Error");
+    }
   }
 
   if (avatar) {
-    await updateSaleAvatar(data.user.id, avatar);
+    await updateSaleAvatar(sale.user_id, avatar);
   }
 
   // Only admins+ can update role and disabled status, and not on themselves
@@ -294,9 +421,11 @@ async function patchUser(req: Request, currentUserSale: any) {
   }
 
   try {
-    await updateSaleDisabled(data.user.id, disabled);
+    if (typeof disabled === "boolean") {
+      await updateSaleDisabled(sale.user_id, disabled);
+    }
     const updatedSale = effectiveRole
-      ? await updateSaleRole(data.user.id, effectiveRole)
+      ? await updateSaleRole(sale.user_id, effectiveRole)
       : sale;
 
     // Re-fetch to get synced administrator field

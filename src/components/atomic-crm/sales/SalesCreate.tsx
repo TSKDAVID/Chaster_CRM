@@ -5,7 +5,7 @@ import { SimpleForm } from "@/components/admin/simple-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import type { CrmDataProvider } from "../providers/types";
-import type { SalesFormData } from "../types";
+import type { SalesCreateResult, SalesFormData } from "../types";
 import { SalesInputs } from "./SalesInputs";
 
 export function SalesCreate() {
@@ -19,12 +19,31 @@ export function SalesCreate() {
     mutationFn: async (data: SalesFormData) => {
       return dataProvider.salesCreate(data);
     },
-    onSuccess: () => {
-      notify("resources.sales.create.success", {
-        messageArgs: {
-          _: "User created. They will soon receive an email to set their password.",
-        },
-      });
+    onSuccess: (created: SalesCreateResult) => {
+      const inv = created.inviteMeta;
+      if (inv?.attempted === true && inv.sent === true) {
+        notify(
+          translate("resources.sales.create.success_invite_sent", {
+            _: "User created. An invitation email was sent (ask them to check spam too).",
+          }),
+          { type: "success" },
+        );
+      } else if (inv?.attempted === true && inv.sent === false) {
+        notify(
+          translate("resources.sales.create.warn_invite_not_sent", {
+            _: "User created, but the invitation email was not sent. Configure SMTP under Authentication or check Logs → Auth. Reason: %{detail}",
+            detail: inv.error?.message ?? "(no message)",
+          }),
+          { type: "warning" },
+        );
+      } else {
+        notify(
+          translate("resources.sales.create.success_no_invite", {
+            _: "User created.",
+          }),
+          { type: "success" },
+        );
+      }
       redirect("/sales");
     },
     onError: (error) => {

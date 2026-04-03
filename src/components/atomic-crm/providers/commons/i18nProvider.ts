@@ -24,11 +24,31 @@ const raSupabaseFrenchMessagesOverride = {
   },
 };
 
+/** Sign-up form uses these; they are not in stock ra-language-english. */
+const raAuthSignupFieldLabelsEn = {
+  ra: {
+    auth: {
+      first_name: "First name",
+      last_name: "Last name",
+    },
+  },
+};
+
+const raAuthSignupFieldLabelsFr = {
+  ra: {
+    auth: {
+      first_name: "Prénom",
+      last_name: "Nom",
+    },
+  },
+};
+
 const englishCatalog = mergeTranslations(
   englishMessages,
   raSupabaseEnglishMessages,
   raSupabaseEnglishMessagesOverride,
   englishCrmMessages,
+  raAuthSignupFieldLabelsEn,
 );
 
 const frenchCatalog = mergeTranslations(
@@ -37,6 +57,7 @@ const frenchCatalog = mergeTranslations(
   raSupabaseFrenchMessages,
   raSupabaseFrenchMessagesOverride,
   frenchCrmMessages,
+  raAuthSignupFieldLabelsFr,
 );
 
 export const getInitialLocale = (): "en" | "fr" => {
